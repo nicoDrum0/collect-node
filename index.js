@@ -1,6 +1,5 @@
 const mysql = require('mysql')
 const http = require('http')
-const url = require('url')
 const qs = require('querystring')
 
 const connection = mysql.createConnection({
@@ -31,11 +30,11 @@ const server = http.createServer((req, res) => {
                 const password = result.password
                 let readSql =
                     "SELECT * FROM user WHERE username  = '" + username + "'"
-                connection.query(readSql, (err1, res1) => {
-                    if (err1) {
-                        throw err1
+                connection.query(readSql, (error, response) => {
+                    if (error) {
+                        throw error
                     } else {
-                        if (res1 === undefined || res1.length === 0) {
+                        if (response === undefined || response.length === 0) {
                             res.write(
                                 JSON.stringify({
                                     code: 1,
@@ -44,7 +43,8 @@ const server = http.createServer((req, res) => {
                             )
                             res.end()
                         } else {
-                            let newRes = JSON.parse(JSON.stringify(res1))
+                            let newRes = JSON.parse(JSON.stringify(response))
+                            const _folder = JSON.parse(newRes[0].folder)
                             if (newRes[0].password === password) {
                                 res.write(
                                     JSON.stringify({
@@ -52,7 +52,8 @@ const server = http.createServer((req, res) => {
                                         message: '登录成功！',
                                         data: {
                                             id: newRes[0].id,
-                                            username: newRes[0].username
+                                            username: newRes[0].username,
+                                            folder: _folder
                                         }
                                     })
                                 )
@@ -73,11 +74,11 @@ const server = http.createServer((req, res) => {
                 // 注册
                 new Promise((resolve, reject) => {
                     let readSql = 'SELECT * FROM user'
-                    connection.query(readSql, (err1, res1) => {
-                        if (err1) {
-                            throw err1
+                    connection.query(readSql, (error, response) => {
+                        if (error) {
+                            throw error
                         } else {
-                            let newRes = JSON.parse(JSON.stringify(res1))
+                            let newRes = JSON.parse(JSON.stringify(response))
                             let usernameRepeat = false
                             for (let item in newRes) {
                                 if (newRes[item].username === result.username) {
@@ -105,7 +106,7 @@ const server = http.createServer((req, res) => {
                         `INSERT INTO user(username, password) VALUES(${username}, ${password})`,
                         (err, result) => {
                             if (err) {
-                                console.log(err)
+                                throw err
                             } else {
                                 res.write(
                                     JSON.stringify({
@@ -118,10 +119,82 @@ const server = http.createServer((req, res) => {
                         }
                     )
                 })
+            } else if (pathname === '/postSite') {
+                // 添加网址
+                new Promise((resolve, reject) => {
+                    let readSql = 'SELECT * FROM site'
+                    connection.query(readSql, (error, response) => {
+                        if (error) {
+                            throw error
+                        } else {
+                            let newRes = JSON.parse(JSON.stringify(response))
+                            let siteRepeat = false
+                            let addressRepeat = false
+                            for (let item in newRes) {
+                                if (newRes[item].sitename === result.sitename) {
+                                    siteRepeat = true
+                                }
+                            }
+                            for (let item in newRes) {
+                                if (newRes[item].address === result.address) {
+                                    addressRepeat = true
+                                }
+                            }
+
+                            if (siteRepeat || addressRepeat) {
+                                res.write(
+                                    JSON.stringify({
+                                        code: 1,
+                                        message: '网站名或网址已存在！'
+                                    })
+                                )
+                                res.end()
+                            } else {
+                                resolve()
+                            }
+                        }
+                    })
+                }).then(() => {
+                    const sitename = JSON.stringify(result.sitename)
+                    const address = JSON.stringify(result.address)
+                    connection.query(
+                        `INSERT INTO site(sitename, address) VALUES(${sitename}, ${address})`,
+                        (err, result) => {
+                            if (err) {
+                                throw err
+                            } else {
+                                res.write(
+                                    JSON.stringify({
+                                        code: 0,
+                                        message: '提交成功！'
+                                    })
+                                )
+                                res.end()
+                            }
+                        }
+                    )
+                })
             }
         })
     } else if (req.method === 'GET') {
-        console.log('get method')
+        let pathname = req.url
+        if (pathname === '/site') {
+            let readSql = 'SELECT * FROM site'
+            connection.query(readSql, (error, response) => {
+                if (error) {
+                    throw error
+                } else {
+                    let newRes = JSON.parse(JSON.stringify(response))
+                    res.write(
+                        JSON.stringify({
+                            code: 0,
+                            data: newRes
+                        })
+                    )
+                    res.end()
+                }
+            })
+        }
     }
 })
 
