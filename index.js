@@ -120,59 +120,141 @@ const server = http.createServer((req, res) => {
                     )
                 })
             } else if (pathname === '/postSite') {
-                // 添加网址
+                // 添加文件夹
+                const folderName = result.foldername
                 new Promise((resolve, reject) => {
-                    let readSql = 'SELECT * FROM site'
+                    let readSql =
+                        "SELECT * FROM user WHERE id  = '" + result.id + "'"
                     connection.query(readSql, (error, response) => {
                         if (error) {
                             throw error
                         } else {
-                            let newRes = JSON.parse(JSON.stringify(response))
-                            let siteRepeat = false
-                            let addressRepeat = false
-                            for (let item in newRes) {
-                                if (newRes[item].sitename === result.sitename) {
-                                    siteRepeat = true
-                                }
+                            let folder = JSON.parse(response[0].folder)
+                            const _folder = Object.assign([], folder)
+                            let newKeyIndex
+                            if (_folder.length === 0) {
+                                newKeyIndex = 0
+                            } else {
+                                const lastKeyArr = folder[
+                                    folder.length - 1
+                                ].key.split('-')
+                                newKeyIndex = parseInt(lastKeyArr.pop()) + 1
                             }
-                            for (let item in newRes) {
-                                if (newRes[item].address === result.address) {
-                                    addressRepeat = true
-                                }
+                            let nameArr = []
+                            for (const item of _folder) {
+                                nameArr.push(item.title)
                             }
-
-                            if (siteRepeat || addressRepeat) {
+                            if (nameArr.indexOf(folderName) < 0) {
+                                _folder.push({
+                                    key: `0-${newKeyIndex}`,
+                                    title: folderName,
+                                    children: []
+                                })
+                                let sql = `UPDATE user SET folder = ? WHERE id = ${result.id}`
+                                connection.query(
+                                    sql,
+                                    resFolder,
+                                    (error, results, fields) => {
+                                        if (error) {
+                                            console.log(error)
+                                        } else {
+                                            res.write(
+                                                JSON.stringify({
+                                                    code: 0,
+                                                    message: '添加成功！',
+                                                    folder: _folder
+                                                })
+                                            )
+                                            res.end()
+                                        }
+                                    }
+                                )
+                            } else {
                                 res.write(
                                     JSON.stringify({
                                         code: 1,
-                                        message: '网站名或网址已存在！'
+                                        message: '该文件夹已存在，请重新命名！'
                                     })
                                 )
                                 res.end()
-                            } else {
-                                resolve()
                             }
                         }
                     })
-                }).then(() => {
-                    const sitename = JSON.stringify(result.sitename)
-                    const address = JSON.stringify(result.address)
-                    connection.query(
-                        `INSERT INTO site(sitename, address) VALUES(${sitename}, ${address})`,
-                        (err, result) => {
-                            if (err) {
-                                throw err
-                            } else {
-                                res.write(
-                                    JSON.stringify({
-                                        code: 0,
-                                        message: '提交成功！'
-                                    })
-                                )
-                                res.end()
+                })
+            } else if (pathname === '/delFolder') {
+                console.log(result)
+                const eventKey = result.eventKey
+                let readSql =
+                    "SELECT * FROM user WHERE id  = '" + result.id + "'"
+                connection.query(readSql, (error, response) => {
+                    if (error) {
+                        throw error
+                    } else {
+                        const folder = JSON.parse(response[0].folder)
+                        const _folder = Object.assign([], folder)
+                        const resArr = _folder.filter((value, index, array) => {
+                            return value.key !== eventKey
+                        })
+                        const _resArr = JSON.stringify(resArr)
+                        let sql = `UPDATE user SET folder = ? WHERE id = ${result.id}`
+                        connection.query(
+                            sql,
+                            _resArr,
+                            (error, results, fields) => {
+                                if (error) {
+                                    throw error
+                                } else {
+                                    res.write(
+                                        JSON.stringify({
+                                            code: 0,
+                                            message: '删除成功！',
+                                            folder: resArr
+                                        })
+                                    )
+                                    res.end()
+                                }
                             }
-                        }
-                    )
+                        )
+                    }
+                })
+            } else if (pathname === '/rename') {
+                console.log(result)
+                const eventKey = result.eventKey
+                const newName = result.newName
+                let readSql =
+                    "SELECT * FROM user WHERE id  = '" + result.id + "'"
+                connection.query(readSql, (error, response) => {
+                    if (error) {
+                        throw error
+                    } else {
+                        const folder = JSON.parse(response[0].folder)
+                        const _folder = Object.assign([], folder)
+                        _folder.map(item => {
+                            if (item.key === eventKey) {
+                                item.title = newName
+                            }
+                        })
+                        const _resArr = JSON.stringify(_folder)
+                        let sql = `UPDATE user SET folder = ? WHERE id = ${result.id}`
+                        connection.query(
+                            sql,
+                            _resArr,
+                            (error, results, fields) => {
+                                if (error) {
+                                    throw error
+                                } else {
+                                    res.write(
+                                        JSON.stringify({
+                                            code: 0,
+                                            message: '重命名成功！',
+                                            folder: resArr
+                                        })
+                                    )
+                                    res.end()
+                                }
+                            }
+                        )
+                    }
                 })
             }
         })
