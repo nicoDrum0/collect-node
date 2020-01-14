@@ -150,6 +150,7 @@ const server = http.createServer((req, res) => {
                                     title: folderName,
                                     children: []
                                 })
+                                const resFolder = JSON.stringify(_folder)
                                 let sql = `UPDATE user SET folder = ? WHERE id = ${result.id}`
                                 connection.query(
                                     sql,
@@ -181,9 +182,11 @@ const server = http.createServer((req, res) => {
                         }
                     })
                 })
-            } else if (pathname === '/delFolder') {
+            } else if (pathname === '/del') {
                 console.log(result)
                 const eventKey = result.eventKey
+                const _length = eventKey.split('-').length
+                console.log(_length)
                 let readSql =
                     "SELECT * FROM user WHERE id  = '" + result.id + "'"
                 connection.query(readSql, (error, response) => {
@@ -192,9 +195,27 @@ const server = http.createServer((req, res) => {
                     } else {
                         const folder = JSON.parse(response[0].folder)
                         const _folder = Object.assign([], folder)
-                        const resArr = _folder.filter((value, index, array) => {
-                            return value.key !== eventKey
-                        })
+                        let resArr
+                        if (_length === 2) {
+                            resArr = _folder.filter((value, index, array) => {
+                                return value.key !== eventKey
+                            })
+                        } else if (_length === 3) {
+                            const parentKey =
+                                eventKey.split('-')[0] +
+                                '-' +
+                                eventKey.split('-')[1]
+                            _folder.find((value, index, array) => {
+                                if (value.key === parentKey) {
+                                    value.children = value.children.filter(
+                                        item => {
+                                            return item.key !== eventKey
+                                        }
+                                    )
+                                }
+                            })
+                            resArr = _folder
+                        }
                         const _resArr = JSON.stringify(resArr)
                         let sql = `UPDATE user SET folder = ? WHERE id = ${result.id}`
                         connection.query(
@@ -218,7 +239,6 @@ const server = http.createServer((req, res) => {
                     }
                 })
             } else if (pathname === '/rename') {
-                console.log(result)
                 const eventKey = result.eventKey
                 const newName = result.newName
                 let readSql =
@@ -247,13 +267,87 @@ const server = http.createServer((req, res) => {
                                         JSON.stringify({
                                             code: 0,
                                             message: '重命名成功！',
-                                            folder: resArr
+                                            folder: _folder
                                         })
                                     )
                                     res.end()
                                 }
                             }
                         )
+                    }
+                })
+            } else if (pathname === '/addSite') {
+                console.log(result)
+                const { eventKey, id, sitename, address } = result
+                let readSql = "SELECT * FROM user WHERE id  = '" + id + "'"
+                connection.query(readSql, (error, response) => {
+                    if (error) {
+                        throw error
+                    } else {
+                        const folder = JSON.parse(response[0].folder)
+                        const _folder = Object.assign([], folder)
+                        _folder.map(item => {
+                            if (item.key === eventKey) {
+                                if (item.children.length !== 0) {
+                                    let resArr = []
+                                    for (const iterator of item.children) {
+                                        resArr.push(iterator.title)
+                                    }
+                                    if (resArr.indexOf(sitename) >= 0) {
+                                        res.write(
+                                            JSON.stringify({
+                                                code: 1,
+                                                message:
+                                                    '网站已存在，请重新添加！'
+                                            })
+                                        )
+                                        res.end()
+                                    } else {
+                                        const lastKeyArr = item.children[
+                                            item.children.length - 1
+                                        ].key.split('-')
+                                        newKeyIndex =
+                                            parseInt(lastKeyArr.pop()) + 1
+                                        const newKey =
+                                            eventKey + `-${newKeyIndex}`
+                                        item.children.push({
+                                            key: newKey,
+                                            title: sitename,
+                                            isLeaf: true,
+                                            address: address
+                                        })
+                                    }
+                                } else {
+                                    const newKey = eventKey + '-0'
+                                    item.children.push({
+                                        key: newKey,
+                                        title: sitename,
+                                        isLeaf: true,
+                                        address: address
+                                    })
+                                }
+                                const _resFolder = JSON.stringify(_folder)
+                                let sql = `UPDATE user SET folder = ? WHERE id = ${result.id}`
+                                connection.query(
+                                    sql,
+                                    _resFolder,
+                                    (error, results, fields) => {
+                                        if (error) {
+                                            throw error
+                                        } else {
+                                            res.write(
+                                                JSON.stringify({
+                                                    code: 0,
+                                                    message: '添加成功！',
+                                                    folder: _folder
+                                                })
+                                            )
+                                            res.end()
+                                        }
+                                    }
+                                )
+                            }
+                        })
                     }
                 })
             }
