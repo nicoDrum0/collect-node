@@ -157,7 +157,7 @@ const server = http.createServer((req, res) => {
                                     resFolder,
                                     (error, results, fields) => {
                                         if (error) {
-                                            console.log(error)
+                                            throw error
                                         } else {
                                             res.write(
                                                 JSON.stringify({
@@ -183,10 +183,8 @@ const server = http.createServer((req, res) => {
                     })
                 })
             } else if (pathname === '/del') {
-                console.log(result)
                 const eventKey = result.eventKey
                 const _length = eventKey.split('-').length
-                console.log(_length)
                 let readSql =
                     "SELECT * FROM user WHERE id  = '" + result.id + "'"
                 connection.query(readSql, (error, response) => {
@@ -277,7 +275,6 @@ const server = http.createServer((req, res) => {
                     }
                 })
             } else if (pathname === '/addSite') {
-                console.log(result)
                 const { eventKey, id, sitename, address } = result
                 let readSql = "SELECT * FROM user WHERE id  = '" + id + "'"
                 connection.query(readSql, (error, response) => {
